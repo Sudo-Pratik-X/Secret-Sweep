@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secret Sweep — JS Secret &amp; Crypto Disclosure Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D1117;
+    --panel:#141A22;
+    --panel-2:#1B222C;
+    --line:#2A323D;
+    --text:#DCE3EC;
+    --muted:#7C8798;
+    --muted-2:#57616F;
+    --amber:#E8A33D;
+    --amber-dim:#8A6624;
+    --critical:#E5484D;
+    --critical-dim:#5A2224;
+    --high:#F2994A;
+    --high-dim:#5C3D1E;
+    --medium:#4FB4C7;
+    --medium-dim:#22454D;
+    --info:#8B93E8;
+    --info-dim:#2E3155;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(232,163,61,0.06), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(139,147,232,0.05), transparent 60%),
+      var(--ink);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.5;
+    min-height:100vh;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:40px 24px 80px;}
+
+  /* Header */
+  header{margin-bottom:36px;}
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--amber); display:flex; align-items:center; gap:10px; margin-bottom:14px;
+  }
+  .eyebrow::before{content:''; width:7px; height:7px; background:var(--amber); border-radius:50%; box-shadow:0 0 8px var(--amber);}
+  h1{
+    font-size:clamp(28px,4vw,42px); font-weight:700; margin:0 0 10px; letter-spacing:-0.01em;
+    color:#F2F5F9;
+  }
+  h1 span{color:var(--muted); font-weight:400;}
+  .sub{color:var(--muted); max-width:640px; font-size:15px;}
+  .ethics{
+    margin-top:18px; padding:12px 16px; border:1px solid var(--line); border-left:3px solid var(--amber);
+    background:var(--panel); border-radius:4px; font-size:12.5px; color:var(--muted); font-family:var(--mono);
+  }
+  .ethics b{color:var(--amber); font-weight:600;}
+
+  /* Input panel */
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:20px; margin-bottom:24px;
+  }
+  .panel-title{
+    font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted);
+    margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;
+  }
+  textarea{
+    width:100%; min-height:180px; background:var(--ink); color:var(--text); border:1px solid var(--line);
+    border-radius:6px; padding:14px; font-family:var(--mono); font-size:13px; resize:vertical;
+    outline:none; transition:border-color .15s;
+  }
+  textarea:focus{border-color:var(--amber-dim);}
+  .drop{
+    border:1.5px dashed var(--line); border-radius:6px; padding:18px; text-align:center; color:var(--muted-2);
+    font-family:var(--mono); font-size:12.5px; margin-top:12px; cursor:pointer; transition:.15s;
+  }
+  .drop:hover, .drop.drag{border-color:var(--amber); color:var(--amber); background:rgba(232,163,61,0.04);}
+  .file-chip{
+    display:inline-flex; align-items:center; gap:8px; background:var(--panel-2); border:1px solid var(--line);
+    padding:5px 10px; border-radius:20px; font-family:var(--mono); font-size:11.5px; margin:6px 6px 0 0; color:var(--text);
+  }
+  .file-chip button{background:none; border:none; color:var(--muted-2); cursor:pointer; font-size:14px; padding:0; line-height:1;}
+  .file-chip button:hover{color:var(--critical);}
+  .row{display:flex; gap:12px; margin-top:16px; align-items:center; flex-wrap:wrap;}
+  button.primary{
+    background:var(--amber); color:#1A1204; border:none; font-family:var(--sans); font-weight:600; font-size:14px;
+    padding:11px 22px; border-radius:6px; cursor:pointer; transition:.15s; letter-spacing:.01em;
+  }
+  button.primary:hover{background:#f0ae52; transform:translateY(-1px);}
+  button.primary:disabled{background:var(--muted-2); color:var(--muted); cursor:not-allowed; transform:none;}
+  button.ghost{
+    background:transparent; color:var(--muted); border:1px solid var(--line); font-family:var(--sans); font-size:13px;
+    padding:10px 18px; border-radius:6px; cursor:pointer; transition:.15s;
+  }
+  button.ghost:hover{color:var(--text); border-color:var(--muted-2);}
+  input[type=file]{display:none;}
+
+  /* Summary */
+  .summary{display:flex; gap:10px; flex-wrap:wrap; margin:28px 0 20px;}
+  .chip{
+    flex:1; min-width:130px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px;
+    position:relative; overflow:hidden;
+  }
+  .chip::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3px;}
+  .chip.critical::before{background:var(--critical);}
+  .chip.high::before{background:var(--high);}
+  .chip.medium::before{background:var(--medium);}
+  .chip.info::before{background:var(--info);}
+  .chip .n{font-family:var(--mono); font-size:26px; font-weight:700;}
+  .chip.critical .n{color:var(--critical);}
+  .chip.high .n{color:var(--high);}
+  .chip.medium .n{color:var(--medium);}
+  .chip.info .n{color:var(--info);}
+  .chip .l{font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; font-family:var(--mono); margin-top:2px;}
+
+  /* Results */
+  .section-title{
+    font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted);
+    margin:30px 0 12px; display:flex; align-items:center; gap:10px;
+  }
+  .section-title::after{content:''; flex:1; height:1px; background:var(--line);}
+
+  .finding{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; margin-bottom:10px; overflow:hidden;
+  }
+  .finding-head{
+    display:flex; align-items:center; gap:10px; padding:11px 14px; flex-wrap:wrap;
+  }
+  .badge{
+    font-family:var(--mono); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    padding:3px 8px; border-radius:4px;
+  }
+  .badge.critical{background:var(--critical-dim); color:#ff9a9d;}
+  .badge.high{background:var(--high-dim); color:#ffc08a;}
+  .badge.medium{background:var(--medium-dim); color:#a6e6f2;}
+  .badge.info{background:var(--info-dim); color:#c2c6f5;}
+  .f-label{font-weight:600; font-size:13.5px; color:var(--text);}
+  .f-loc{font-family:var(--mono); font-size:11.5px; color:var(--muted-2); margin-left:auto;}
+  .finding-body{
+    border-top:1px solid var(--line); padding:12px 14px; font-family:var(--mono); font-size:12.5px;
+    background:var(--ink); color:var(--muted); overflow-x:auto; white-space:pre;
+  }
+  .finding-body .hl{
+    background:rgba(232,163,61,0.16); color:var(--amber); border-bottom:1.5px solid var(--amber); padding:1px 2px; border-radius:2px;
+  }
+  .finding-foot{
+    display:flex; justify-content:flex-end; padding:0 14px 10px;
+  }
+  .toggle{
+    background:none; border:none; color:var(--muted-2); font-family:var(--mono); font-size:11px; cursor:pointer;
+    text-decoration:underline; text-underline-offset:2px;
+  }
+  .toggle:hover{color:var(--amber);}
+
+  .algo-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px;}
+  .algo-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px;
+  }
+  .algo-card .name{font-family:var(--mono); font-weight:700; color:var(--medium); font-size:14px;}
+  .algo-card .count{color:var(--muted); font-size:11.5px; font-family:var(--mono); margin-top:4px;}
+
+  .empty{
+    text-align:center; padding:50px 20px; color:var(--muted-2); font-family:var(--mono); font-size:13px;
+  }
+  .empty b{color:var(--muted); display:block; font-size:15px; margin-bottom:6px; font-family:var(--sans); font-weight:600;}
+
+  footer{margin-top:50px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted-2); font-size:12px; font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">client-side static analysis</div>
+    <h1>Secret Sweep <span>/ JS disclosure scanner</span></h1>
+    <p class="sub">Paste or drop JavaScript source (bundles, chunks, .map files) to flag hardcoded API keys, credentials, tokens, encryption keys/IVs, and the crypto mechanisms in use — so you know what you're dealing with before attempting to decrypt anything.</p>
+    <div class="ethics"><b>Scope reminder —</b> only run this against code you own or are explicitly authorized to test. Everything here runs locally in your browser; no file content is uploaded anywhere.</div>
+  </header>
+
+  <div class="panel">
+    <div class="panel-title">
+      <span>Input</span>
+      <span id="charcount" style="color:var(--muted-2)">0 chars</span>
+    </div>
+    <textarea id="codeInput" placeholder="Paste minified or unminified JavaScript here…"></textarea>
+    <div class="drop" id="drop">Drop .js / .map / .json / .txt files here, or click to browse</div>
+    <input type="file" id="fileInput" multiple accept=".js,.mjs,.cjs,.map,.json,.txt">
+    <div id="fileList"></div>
+    <div class="row">
+      <button class="primary" id="scanBtn">Scan for secrets</button>
+      <button class="ghost" id="clearBtn">Clear</button>
+      <span id="status" style="color:var(--muted-2); font-family:var(--mono); font-size:12px;"></span>
+    </div>
+  </div>
+
+  <div id="results"></div>
+
+  <footer>secret-sweep · pattern + entropy based static analysis · no network calls · results are only as good as the patterns, always verify manually</footer>
+</div>
+
+<script>
+const files = []; // {name, content}
+
+const codeInput = document.getElementById('codeInput');
+const fileInput = document.getElementById('fileInput');
+const drop = document.getElementById('drop');
+const fileList = document.getElementById('fileList');
+const charcount = document.getElementById('charcount');
+const status = document.getElementById('status');
+
+codeInput.addEventListener('input', () => {
+  charcount.textContent = codeInput.value.length.toLocaleString() + ' chars';
+});
+
+drop.addEventListener('click', () => fileInput.click());
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+drop.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(fileListObj){
+  Array.from(fileListObj).forEach(f => {
+    if (f.size > 8*1024*1024) { alert(f.name + ' is too large (>8MB), skipping.'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      files.push({name: f.name, content: e.target.result});
+      renderFileChips();
+    };
+    reader.readAsText(f);
+  });
+}
+
+function renderFileChips(){
+  fileList.innerHTML = '';
+  files.forEach((f, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    chip.innerHTML = `<span>${escapeHtml(f.name)} · ${(f.content.length/1024).toFixed(1)}kb</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '×';
+    btn.onclick = () => { files.splice(i,1); renderFileChips(); };
+    chip.appendChild(btn);
+    fileList.appendChild(chip);
+  });
+}
+
+document.getElementById('clearBtn').onclick = () => {
+  codeInput.value = '';
+  files.length = 0;
+  renderFileChips();
+  charcount.textContent = '0 chars';
+  document.getElementById('results').innerHTML = '';
+  status.textContent = '';
+};
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- Pattern definitions ---------- */
+const PATTERNS = [
+  {label:'AWS Access Key ID', severity:'critical', re:/AKIA[0-9A-Z]{16}/g},
+  {label:'AWS Secret Access Key', severity:'critical', re:/(?:aws_secret_access_key|secretAccessKey|secret_access_key)\s*[:=]\s*['"]([0-9a-zA-Z\/+]{40})['"]/gi, group:1},
+  {label:'Google API Key', severity:'critical', re:/AIza[0-9A-Za-z\-_]{35}/g},
+  {label:'Google OAuth Client Secret', severity:'high', re:/GOCSPX-[0-9A-Za-z\-_]{20,}/g},
+  {label:'Slack Token', severity:'critical', re:/xox[baprs]-[0-9A-Za-z-]{10,72}/g},
+  {label:'Stripe Live Key', severity:'critical', re:/[sp]k_live_[0-9a-zA-Z]{16,}/g},
+  {label:'Twilio Auth / Account Key', severity:'critical', re:/\bSK[0-9a-fA-F]{32}\b/g},
+  {label:'SendGrid API Key', severity:'critical', re:/SG\.[0-9A-Za-z\-_]{22}\.[0-9A-Za-z\-_]{43}/g},
+  {label:'Private Key Block', severity:'critical', re:/-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----/g},
+  {label:'JSON Web Token (JWT)', severity:'high', re:/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g},
+  {label:'Bearer Token', severity:'high', re:/Bearer\s+[A-Za-z0-9\-_.=]{20,}/g},
+  {label:'Credentials Embedded in URL', severity:'high', re:/https?:\/\/[^\/\s:'"]+:[^\/\s@'"]+@[^\/\s'"]+/g},
+  {label:'Generic API Key / Secret Assignment', severity:'high', re:/(?:api[_-]?key|apikey|access[_-]?token|client[_-]?secret|secret[_-]?key)\s*[:=]\s*['"]([0-9a-zA-Z\-_.]{12,})['"]/gi, group:1},
+  {label:'Hardcoded Password', severity:'high', re:/(?:password|passwd|pwd)\s*[:=]\s*['"]([^'"]{4,64})['"]/gi, group:1},
+  {label:'Hardcoded Encryption / Cipher Key', severity:'critical', re:/(?:enc(?:ryption)?[_-]?key|cipher[_-]?key|aes[_-]?key|secretkey|secret_key)\s*[:=]\s*['"]([0-9a-fA-F]{16,64}|[A-Za-z0-9+\/=]{16,64})['"]/gi, group:1},
+  {label:'Hardcoded Initialization Vector (IV)', severity:'critical', re:/\biv\s*[:=]\s*['"]([0-9a-fA-F]{16,32}|[A-Za-z0-9+\/=]{16,32})['"]/g, group:1},
+  {label:'Firebase API Key in Config', severity:'high', re:/apiKey\s*:\s*['"]AIza[0-9A-Za-z\-_]{35}['"]/g},
+];
+
+const CRYPTO_SIGNALS = [
+  {label:'Node crypto.createCipheriv / createDecipheriv', re:/create(?:Cipher|Decipher)iv\s*\(\s*['"]([\w-]+)['"]/g, group:1},
+  {label:'CryptoJS AES/DES/RC4 usage', re:/CryptoJS\.(AES|DES|TripleDES|RC4|Rabbit)\.(encrypt|decrypt)/g},
+  {label:'Web Crypto API (SubtleCrypto)', re:/crypto\.subtle\.(encrypt|decrypt|deriveKey|importKey|generateKey)/g},
+  {label:'JSEncrypt / RSA in browser', re:/JSEncrypt|forge\.pki|rsa\.encrypt/gi},
+  {label:'Algorithm / mode reference', re:/\b(AES-128-CBC|AES-256-CBC|AES-256-GCM|AES-128-GCM|AES-192-CBC|3DES|TripleDES|Blowfish|RC4|ECB|CBC|GCM)\b/g},
+  {label:'Weak hash reference (MD5/SHA1)', re:/\b(MD5|SHA1|SHA-1)\b/g},
+  {label:'Base64-looking blob (possible key/cert/payload)', re:/['"]([A-Za-z0-9+\/]{60,}={0,2})['"]/g, group:1},
+];
+
+/* ---------- Entropy-based generic secret detection ---------- */
+function shannonEntropy(str){
+  const freq = {};
+  for (const ch of str) freq[ch] = (freq[ch]||0) + 1;
+  let entropy = 0;
+  const len = str.length;
+  for (const ch in freq){
+    const p = freq[ch] / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
+
+function looksLikeSecretString(s){
+  if (s.length < 20 || s.length > 120) return false;
+  if (/\s/.test(s)) return false;
+  if (s.includes('://')) return false;
+  if ((s.match(/\//g) || []).length > 3) return false; // looks like a path
+  if (!/[0-9]/.test(s) || !/[a-zA-Z]/.test(s)) return false;
+  const entropy = shannonEntropy(s);
+  return entropy >= 3.6;
+}
+
+/* ---------- Scan engine ---------- */
+function lineNumberAt(content, index){
+  let n = 1;
+  for (let i=0; i<index; i++) if (content.charCodeAt(i) === 10) n++;
+  return n;
+}
+
+function getLineText(content, lineNum){
+  const lines = content.split('\n');
+  return lines[lineNum-1] !== undefined ? lines[lineNum-1].trim().slice(0, 300) : '';
+}
+
+function maskSecret(s){
+  if (s.length <= 8) return s[0] + '••••' + s[s.length-1];
+  return s.slice(0,4) + '••••••••' + s.slice(-4);
+}
+
+function runScan(){
+  const sources = [];
+  if (codeInput.value.trim().length > 0) sources.push({name:'Pasted input', content: codeInput.value});
+  files.forEach(f => sources.push(f));
+
+  if (sources.length === 0){
+    status.textContent = 'Nothing to scan — paste code or add a file.';
+    return;
+  }
+
+  status.textContent = 'Scanning…';
+  document.getElementById('results').innerHTML = '';
+
+  setTimeout(() => {
+    const findings = [];   // {severity, label, file, line, snippet, secretRaw}
+    const algoMap = new Map(); // label -> count
+
+    sources.forEach(src => {
+      const content = src.content;
+
+      PATTERNS.forEach(p => {
+        p.re.lastIndex = 0;
+        let m;
+        while ((m = p.re.exec(content)) !== null){
+          const value = p.group ? m[p.group] : m[0];
+          const line = lineNumberAt(content, m.index);
+          findings.push({
+            severity: p.severity, label: p.label, file: src.name, line,
+            lineText: getLineText(content, line), secretRaw: value
+          });
+          if (m[0].length === 0) p.re.lastIndex++;
+        }
+      });
+
+      CRYPTO_SIGNALS.forEach(c => {
+        c.re.lastIndex = 0;
+        let m;
+        while ((m = c.re.exec(content)) !== null){
+          let label = c.label;
+          if (c.group && m[c.group]) label = c.label + ' → ' + m[c.group];
+          algoMap.set(label, (algoMap.get(label) || 0) + 1);
+          if (m[0].length === 0) c.re.lastIndex++;
+        }
+      });
+
+      // generic high-entropy strings
+      const strRe = /(['"])((?:(?!\1)[^\\]|\\.)*)\1/g;
+      let sm;
+      const already = new Set(findings.filter(f=>f.file===src.name).map(f=>f.secretRaw));
+      while ((sm = strRe.exec(content)) !== null){
+        const val = sm[2];
+        if (already.has(val)) continue;
+        if (looksLikeSecretString(val)){
+          const line = lineNumberAt(content, sm.index);
+          findings.push({
+            severity:'info', label:'High-Entropy String (possible secret/key)', file: src.name, line,
+            lineText: getLineText(content, line), secretRaw: val
+          });
+          already.add(val);
+        }
+      }
+    });
+
+    renderResults(findings, algoMap, sources);
+  }, 30);
+}
+
+function severityRank(s){ return {critical:0, high:1, medium:2, info:3}[s]; }
+
+function renderResults(findings, algoMap, sources){
+  const el = document.getElementById('results');
+  const totalLines = sources.reduce((a,s)=>a + s.content.split('\n').length, 0);
+  status.textContent = `Scanned ${sources.length} source${sources.length>1?'s':''} · ${totalLines.toLocaleString()} lines`;
+
+  if (findings.length === 0 && algoMap.size === 0){
+    el.innerHTML = `<div class="empty"><b>No disclosures found</b>No hardcoded credentials, keys, or crypto mechanisms matched. Doesn't guarantee the code is clean — try feeding it unminified / beautified source for better line context.</div>`;
+    return;
+  }
+
+  const counts = {critical:0, high:0, medium:0, info:0};
+  findings.forEach(f => counts[f.severity]++);
+
+  let html = `<div class="summary">
+    <div class="chip critical"><div class="n">${counts.critical}</div><div class="l">Critical</div></div>
+    <div class="chip high"><div class="n">${counts.high}</div><div class="l">High</div></div>
+    <div class="chip medium"><div class="n">${counts.medium}</div><div class="l">Medium</div></div>
+    <div class="chip info"><div class="n">${counts.info}</div><div class="l">Info</div></div>
+  </div>`;
+
+  if (algoMap.size > 0){
+    html += `<div class="section-title">Crypto mechanisms observed</div><div class="algo-grid">`;
+    Array.from(algoMap.entries()).sort((a,b)=>b[1]-a[1]).forEach(([label,count]) => {
+      html += `<div class="algo-card"><div class="name">${escapeHtml(label)}</div><div class="count">${count} occurrence${count>1?'s':''}</div></div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (findings.length > 0){
+    html += `<div class="section-title">Disclosed secrets &amp; hardcoded values</div>`;
+    const sorted = findings.slice().sort((a,b)=> severityRank(a.severity)-severityRank(b.severity));
+    sorted.forEach((f, idx) => {
+      const masked = maskSecret(f.secretRaw);
+      const lineHtml = escapeHtml(f.lineText).replace(
+        escapeHtml(f.secretRaw) ? new RegExp(escapeRegex(escapeHtml(f.secretRaw)), 'g') : /(?!)/,
+        `<span class="hl">${escapeHtml(f.secretRaw)}</span>`
+      );
+      html += `<div class="finding">
+        <div class="finding-head">
+          <span class="badge ${f.severity}">${f.severity}</span>
+          <span class="f-label">${escapeHtml(f.label)}</span>
+          <span class="f-loc">${escapeHtml(f.file)} : line ${f.line}</span>
+        </div>
+        <div class="finding-body" id="fb-${idx}">${lineHtml}</div>
+        <div class="finding-foot">
+          <span style="font-family:var(--mono); font-size:11px; color:var(--muted-2); margin-right:auto;">value: <span id="val-${idx}">${escapeHtml(masked)}</span></span>
+          <button class="toggle" data-idx="${idx}" data-raw="${encodeURIComponent(f.secretRaw)}">reveal</button>
+        </div>
+      </div>`;
+    });
+  }
+
+  el.innerHTML = html;
+
+  el.querySelectorAll('.toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = btn.dataset.idx;
+      const raw = decodeURIComponent(btn.dataset.raw);
+      const valEl = document.getElementById('val-'+idx);
+      if (btn.textContent === 'reveal'){
+        valEl.textContent = raw;
+        btn.textContent = 'hide';
+      } else {
+        valEl.textContent = maskSecret(raw);
+        btn.textContent = 'reveal';
+      }
+    });
+  });
+}
+
+function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+document.getElementById('scanBtn').onclick = runScan;
+</script>
+</body>
+</html>
